@@ -89,8 +89,6 @@ export default function UIShowcase() {
   const [theme, setTheme] = useState('jedi'); // 'jedi' | 'sith'
   const [streak, setStreak] = useState(true);
   const [streakSource, setStreakSource] = useState('hybrid'); // 'calendar' | 'events' | 'hybrid'
-  const [xpStyle, setXpStyle] = useState('saber'); // for rotator
-  const [dur, setDur] = useState(4); // seconds/frame rotator
 
   // Live URLs (relative to same host)
   const userRankUrl = useMemo(() => {
@@ -100,13 +98,6 @@ export default function UIShowcase() {
     });
     return `/api/user-rank?${q}`;
   }, [username, theme, streak, streakSource]);
-
-  const rotatorUrl = useMemo(() => {
-    const q = qs({
-      username, theme, xpStyle, dur, streak: streak ? 1 : 0, streakSource
-    });
-    return `/api/qrotator-mini?${q}`;
-  }, [username, theme, xpStyle, dur, streak, streakSource]);
 
   const trialsUrl = useMemo(() => {
     const q = qs({ username, theme, detailed: 0 }); // compact strip; try &detailed=1 later
@@ -126,7 +117,6 @@ export default function UIShowcase() {
   // Markdown snippets
   const md = {
     rank: `![Rank](${userRankUrl})`,
-    rotator: `![Quantum Mini](${rotatorUrl})`,
     trials: `![Yoda Trials](${trialsUrl})`,
     duel: `![Duel](${duelUrl})`
   };
@@ -211,22 +201,6 @@ export default function UIShowcase() {
               gridTemplateColumns:'160px 1fr',
               rowGap:10, columnGap:12, alignItems:'center'
             }}>
-              <div style={{fontSize:12, color:'#9CA3AF'}}>Rotator XP Style</div>
-              <div style={{display:'flex', gap:8}}>
-                <SegButton active={xpStyle==='saber'} onClick={()=>setXpStyle('saber')}>Lightsaber</SegButton>
-                <SegButton active={xpStyle==='bar'} onClick={()=>setXpStyle('bar')}>Mini Bar</SegButton>
-              </div>
-
-              <div style={{fontSize:12, color:'#9CA3AF'}}>Rotator Speed (sec/frame)</div>
-              <input
-                type="number" min={2} max={20}
-                value={dur} onChange={(e)=>setDur(Math.max(2, Math.min(20, Number(e.target.value)||4)))}
-                style={{
-                  width:120, padding:'8px 10px', borderRadius:10, border:'1px solid rgba(255,255,255,0.16)',
-                  background:'rgba(255,255,255,0.06)', color:'#fff', outline:'none'
-                }}
-              />
-
               <div style={{fontSize:12, color:'#9CA3AF'}}>Debug</div>
               <a href={streakDebugUrl} target="_blank" rel="noreferrer"
                  style={{fontSize:12, color:'#93C5FD', textDecoration:'underline'}}>Open streak-debug JSON ↗</a>
@@ -243,7 +217,7 @@ export default function UIShowcase() {
           gap:16
         }}>
           {/* Rank */}
-          <div style={{gridColumn:'span 6'}}>
+          <div style={{gridColumn:'span 12'}}>
             <Card
               title="Rank Badge"
               subtitle="Shields-style — shows tier, XP progress, and streak."
@@ -257,24 +231,6 @@ export default function UIShowcase() {
                 <img src={userRankUrl} alt="Rank Badge" style={{maxWidth:'100%'}} />
               </div>
               <div style={{fontSize:12, color:'#9CA3AF', marginTop:8}}><code>{userRankUrl}</code></div>
-            </Card>
-          </div>
-
-          {/* Rotator */}
-          <div style={{gridColumn:'span 6'}}>
-            <Card
-              title="Quantum Rotator Mini"
-              subtitle="Animated concept strip + XP lightsaber + optional streak."
-              right={<CopyBtn text={md.rotator} />}
-            >
-              <div style={{
-                display:'flex', alignItems:'center', justifyContent:'center',
-                background:'rgba(255,255,255,0.03)', border:'1px dashed rgba(255,255,255,0.15)',
-                borderRadius:12, padding:14
-              }}>
-                <img src={rotatorUrl} alt="Rotator" style={{maxWidth:'100%'}} />
-              </div>
-              <div style={{fontSize:12, color:'#9CA3AF', marginTop:8}}><code>{rotatorUrl}</code></div>
             </Card>
           </div>
 
@@ -316,17 +272,12 @@ export default function UIShowcase() {
 
           {/* Placeholders / Coming Soon */}
           <div style={{gridColumn:'span 12', display:'grid', gridTemplateColumns:'repeat(12,1fr)', gap:16}}>
-            <div style={{gridColumn:'span 4'}}>
+            <div style={{gridColumn:'span 6'}}>
               <Card title="Leaderboard (Coming Soon)" subtitle="Friends / org / custom lists">
                 <Placeholder />
               </Card>
             </div>
-            <div style={{gridColumn:'span 4'}}>
-              <Card title="Quantum Strip (Coming Soon)" subtitle="Day-by-day concept learning">
-                <Placeholder />
-              </Card>
-            </div>
-            <div style={{gridColumn:'span 4'}}>
+            <div style={{gridColumn:'span 6'}}>
               <Card title="Collections (Coming Soon)" subtitle="Bundle several badges together">
                 <Placeholder />
               </Card>
