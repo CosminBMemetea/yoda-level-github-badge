@@ -125,7 +125,6 @@ export async function GET(req: Request) {
   const HEIGHT = 56;                      // Taller for breathing room
   const SEP_W = 64;                       // VS area
   const ICON_W = (i: Icon) => (i === 'none' ? 0 : 18);
-  const MAX_TOTAL = 720;                  // hard cap overall
   const MIN_SIDE = 210;                   // min width per side
   const MAX_SIDE = 300;                   // max width per side before ellipsis
 
@@ -203,31 +202,9 @@ export async function GET(req: Request) {
     )
   );
 
-  let totalW = sideW_L + SEP_W + sideW_R;
-  // If still too wide, squeeze proportionally by re-fitting
-  if (totalW > MAX_TOTAL) {
-    const squeeze = (totalW - MAX_TOTAL) / 2; // reduce both sides
-    const targetL = Math.max(MIN_SIDE, sideW_L - squeeze);
-    const targetR = Math.max(MIN_SIDE, sideW_R - squeeze);
-
-    const maxTextL2 = Math.max(20, targetL - PAD * 2 - iconSpaceL);
-    const maxTextR2 = Math.max(20, targetR - PAD * 2 - iconSpaceR);
-
-    const fitTopL2 = fitTextToWidth(topL, maxTextL2, true);
-    const fitBotL2 = fitTextToWidth(botL, maxTextL2, false);
-    const fitTopR2 = fitTextToWidth(topR, maxTextR2, true);
-    const fitBotR2 = fitTextToWidth(botR, maxTextR2, false);
-
-    var _sideW_L = Math.max(MIN_SIDE, PAD * 2 + iconSpaceL + Math.max(fitTopL2.width, fitBotL2.width));
-    var _sideW_R = Math.max(MIN_SIDE, PAD * 2 + iconSpaceR + Math.max(fitTopR2.width, fitBotR2.width));
-    totalW = _sideW_L + SEP_W + _sideW_R;
-
-    // Apply re-fit versions
-    (fitTopL.text as any) = fitTopL2.text; (fitTopL.width as any) = fitTopL2.width;
-    (fitBotL.text as any) = fitBotL2.text; (fitBotL.width as any) = fitBotL2.width;
-    (fitTopR.text as any) = fitTopR2.text; (fitTopR.width as any) = fitTopR2.width;
-    (fitBotR.text as any) = fitBotR2.text; (fitBotR.width as any) = fitBotR2.width;
-  }
+  // sideW_L and sideW_R are each clamped to at most MAX_SIDE, so totalW can
+  // never exceed 2*MAX_SIDE + SEP_W (664 < 720) — no further squeeze needed.
+  const totalW = sideW_L + SEP_W + sideW_R;
 
   // Progress
   const prA = Math.max(0, Math.min(1, (a.pctToNext ?? 0) / 100));

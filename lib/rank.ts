@@ -54,14 +54,17 @@ export function tierWithBand(points: number): {
   const idx = TIERS.findIndex(t => t.grade === tier.grade);
   const nextTier = idx > 0 ? TIERS[idx - 1] : undefined; // tiers are listed top→bottom
   const currentMin = tier.min;
-  const nextMinExclusive = nextTier ? nextTier.min : 101; // top tier cap
+  // Points are clamped to 100, so the top tier's span must top out at 100
+  // (not 101) or band IV becomes mathematically unreachable even at a
+  // perfect score.
+  const nextMinExclusive = nextTier ? nextTier.min : 100;
 
   const span = Math.max(1, nextMinExclusive - currentMin); // at least 1
   const pos = Math.min(span, Math.max(0, p - currentMin));
-  const quart = span / 4;
+  const quart = span / 4; // always > 0 since span >= 1
 
   // 0..3
-  const bandIndex = Math.min(3, Math.floor(pos / Math.max(1, quart))) as 0 | 1 | 2 | 3;
+  const bandIndex = Math.min(3, Math.floor(pos / quart)) as 0 | 1 | 2 | 3;
   const bandRoman = ROMAN[bandIndex];
 
   const pointsToNext = Math.max(0, (nextMinExclusive - p));

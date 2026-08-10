@@ -40,12 +40,13 @@ export async function GET(req: Request) {
   let rightText = `${rightPersona} (${rightGrade})`;
   let progressRatio: number | undefined = undefined;
 
-  if (granular) {
-    const p = points ?? (rightGrade === 'S++' ? 99 : 80);
-    const { bandRoman, nextTier, pointsToNext, pctToNext } = tierWithBand(p);
+  if (granular && points !== null) {
+    // Sub-rank band and % progress only mean something when we have a
+    // real point value; without one there's nothing to derive them from.
+    const { bandRoman, nextTier, pointsToNext, pctToNext } = tierWithBand(points);
     progressRatio = (pctToNext ?? 0) / 100;
     const parts = [`${rightPersona} (${rightGrade}) • ${bandRoman}`];
-    if (showPoints) parts.push(`${p.toFixed(1)} pts`);
+    if (showPoints) parts.push(`${points.toFixed(1)} pts`);
     if (showNext && nextTier && typeof pointsToNext === 'number') {
       parts.push(`+${pointsToNext.toFixed(1)} to ${nextTier.name}`);
     }

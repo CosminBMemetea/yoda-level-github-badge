@@ -50,11 +50,16 @@ export async function GET(req: Request) {
   const streakDaysBack = Math.max(30, Math.min(365, parseInt(searchParams.get('streakWindow') || '120', 10) || 120));
   const streakSource = (searchParams.get('streakSource') ?? 'calendar') as 'calendar' | 'events' | 'hybrid';
 
-  // 🔐 Token priority: Authorization header > env
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
-  const headerToken = authHeader?.toLowerCase().startsWith('bearer ')
-    ? authHeader.split(/\s+/)[1]
-    : undefined;
+  // 🔐 Token priority: Authorization header ("Bearer" or "token" scheme) > env
+  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+  let headerToken: string | undefined;
+  {
+    const parts = authHeader.split(/\s+/);
+    if (parts.length >= 2) {
+      const scheme = parts[0].toLowerCase();
+      if (scheme === 'bearer' || scheme === 'token') headerToken = parts[1]?.trim();
+    }
+  }
   const token = headerToken || process.env.GITHUB_TOKEN;
 
   let points = 0;
