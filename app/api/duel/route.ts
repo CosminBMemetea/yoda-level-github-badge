@@ -104,11 +104,11 @@ async function computePoints(username: string, token?: string) {
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const user1 = searchParams.get('user1');
-  const user2 = searchParams.get('user2');
+  const user1 = searchParams.get('user1') || searchParams.get('u1');
+  const user2 = searchParams.get('user2') || searchParams.get('u2');
 
   if (!user1 || !user2) {
-    return new Response(JSON.stringify({ error: 'Missing ?user1=&user2=' }), {
+    return new Response(JSON.stringify({ error: 'Missing ?user1=&user2= (or ?u1=&u2=)' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
     });
