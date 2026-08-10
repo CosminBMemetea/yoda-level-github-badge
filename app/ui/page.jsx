@@ -85,7 +85,7 @@ const CopyBtn = ({ text }) => {
 
 export default function UIShowcase() {
   // Controls
-  const [username, setUsername] = useState('talquor');
+  const [username, setUsername] = useState('CosminBMemetea');
   const [theme, setTheme] = useState('jedi'); // 'jedi' | 'sith'
   const [streak, setStreak] = useState(true);
   const [streakSource, setStreakSource] = useState('hybrid'); // 'calendar' | 'events' | 'hybrid'
