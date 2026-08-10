@@ -102,7 +102,6 @@ export async function GET(req: Request) {
 
   // Layout params
   const detailed = searchParams.get('detailed') === '1';
-  const compact  = !detailed && searchParams.get('compact') === '1';
   const title    = esc((searchParams.get('title') ?? 'Yoda Trials').toUpperCase());
   const showLabels = !detailed && searchParams.get('labels') === '1'; // compact labels optional
   const pad = 10;

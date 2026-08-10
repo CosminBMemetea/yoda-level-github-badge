@@ -1,10 +1,10 @@
-# 🌌 Yoda-Level GitHub Badge
+# 🛡️ Yoda-Level GitHub Badge
 
-Turn GitHub activity into a cinematic, Shields-style **Rank** badge — with **granular sub-ranks (I–IV)**, a colorful **XP indicator**, **Jedi/Sith themes**, **classic streaks**, and shareable **head-to-head Duels**.
+Turn your GitHub activity into a cinematic, Shields-style **Rank** badge — with **granular sub-ranks (I–IV)**, a colorful **XP indicator**, **Jedi/Sith themes**, **streaks**, fun **Trials** (achievements), and shareable head-to-head **Duels**.
 
 <p align="center">
-  <a href="https://yoda-level-github-badge.vercel.app/api/user-rank?username=talquor&badge=1&granular=1&showPoints=1&showNext=1&streak=1&logo=galaxy">
-    <img alt="Rank" src="https://yoda-level-github-badge.vercel.app/api/user-rank?username=talquor&badge=1&granular=1&showPoints=1&showNext=1&streak=1&logo=galaxy" />
+  <a href="https://yoda-level-github-badge.vercel.app/api/user-rank?username=CosminBMemetea&badge=1&granular=1&showPoints=1&showNext=1&streak=1&logo=galaxy">
+    <img alt="Rank" src="https://yoda-level-github-badge.vercel.app/api/user-rank?username=CosminBMemetea&badge=1&granular=1&showPoints=1&showNext=1&streak=1&logo=galaxy" />
   </a>
 </p>
 
@@ -16,35 +16,37 @@ Turn GitHub activity into a cinematic, Shields-style **Rank** badge — with **g
 - **Granular sub-ranks** inside each tier: I → II → III → IV
 - **XP indicator**: dots or bar, color-ramped by progress
 - **Themes**: `jedi` (space-blue) or `sith` (crimson/black)
-- **Classic streaks** (consecutive days with ≥1 contribution) — optional momentum mode
+- **Streaks** (consecutive days with ≥1 contribution), computed from your contribution calendar, with an events-based fallback
+- **Trials**: fun achievement badges based on your recent activity
 - **Rank Duels**: shareable SVG posters for A vs B
-- **Zero front-end required**: all endpoints return SVG (or JSON for data view)
+- **Zero front-end required**: every endpoint returns SVG (or JSON if you want raw data)
 
 ---
 
-## 🧪 Quick Start (README usage)
+## 🚀 Quick Start
 
-**Personal badge (auto):**
-```md
-[![Rank](https://yoda-level-github-badge.vercel.app/api/user-rank?username=talquor&badge=1&granular=1&showPoints=1&showNext=1&streak=1&logo=galaxy)](https://yoda-level-github-badge.vercel.app/api/user-rank?username=talquor)
-````
-
-**Torvalds (Sith theme + bar XP):**
+Drop this in your GitHub profile README, swapping in your username:
 
 ```md
-[![Rank](https://yoda-level-github-badge.vercel.app/api/user-rank?username=torvalds&badge=1&granular=1&xp=bar&theme=sith&logo=saber)](https://yoda-level-github-badge.vercel.app/api/user-rank?username=torvalds)
+[![Rank](https://yoda-level-github-badge.vercel.app/api/user-rank?username=YOUR_USERNAME&badge=1&granular=1&showPoints=1&showNext=1&streak=1&logo=galaxy)](https://yoda-level-github-badge.vercel.app/api/user-rank?username=YOUR_USERNAME)
 ```
 
-**Rank Duel — Cosmin vs Torvalds:**
+**Sith theme + XP bar:**
 
 ```md
-[![Rank Duel: talquor vs torvalds](https://yoda-level-github-badge.vercel.app/api/duel?u1=talquor&u2=torvalds&theme=jedi&xp=bar&logo=galaxy)](https://yoda-level-github-badge.vercel.app/api/duel?u1=talquor&u2=torvalds&theme=jedi&xp=bar&logo=galaxy)
+[![Rank](https://yoda-level-github-badge.vercel.app/api/user-rank?username=YOUR_USERNAME&badge=1&granular=1&xp=bar&theme=sith&logo=saber)](https://yoda-level-github-badge.vercel.app/api/user-rank?username=YOUR_USERNAME)
 ```
 
-**Rank Duel — Cosmin vs drmxm:**
+**Rank Duel — you vs a friend:**
 
 ```md
-[![Rank Duel: talquor vs drmxm](https://yoda-level-github-badge.vercel.app/api/duel?u1=talquor&u2=drmxm&theme=jedi&xp=bar&logo=galaxy)](https://yoda-level-github-badge.vercel.app/api/duel?u1=talquor&u2=drmxm&theme=jedi&xp=bar&logo=galaxy)
+[![Rank Duel](https://yoda-level-github-badge.vercel.app/api/duel?user1=YOUR_USERNAME&user2=THEIR_USERNAME&theme=jedi)](https://yoda-level-github-badge.vercel.app/api/duel?user1=YOUR_USERNAME&user2=THEIR_USERNAME&theme=jedi)
+```
+
+**Trials (achievements strip):**
+
+```md
+![Yoda Trials](https://yoda-level-github-badge.vercel.app/api/trials?username=YOUR_USERNAME&theme=jedi)
 ```
 
 **Manual points badge (no GitHub calls):**
@@ -53,58 +55,7 @@ Turn GitHub activity into a cinematic, Shields-style **Rank** badge — with **g
 ![Rank](https://yoda-level-github-badge.vercel.app/api/badge?points=82.5&label=Rank&granular=1&xp=bar&showPoints=1&showNext=1&logo=galaxy)
 ```
 
-
-**Animated (4s per concept, large, Jedi):**
-
-![Quantum Rotator](https://yoda-level-github-badge.vercel.app/api/qrotator?size=lg&theme=jedi&dur=4)
-
-
-**Animated (Sith theme, slower 8s):**
-
-![Quantum Rotator](https://yoda-level-github-badge.vercel.app/api/qrotator?size=lg&theme=sith&dur=8)
-
-
-**Static frame (e.g., Entanglement) for screenshots or if someone’s viewer doesn’t animate:**
-
-![Quantum Rotator](https://yoda-level-github-badge.vercel.app/api/qrotator?size=lg&theme=jedi&frame=entanglement)
-
-
-**Disable wrapping (if you prefer one-liners only):**
-
-![Quantum Rotator](https://yoda-level-github-badge.vercel.app/api/qrotator?size=md&wrap=0)
-
-
-**Mini rotator**
-Animated (Jedi, 4s each):
-```bash
-https://<your-app>.vercel.app/api/qrotator-mini?theme=jedi&dur=4
-
-Animated (Sith, 8s):
-https://<your-app>.vercel.app/api/qrotator-mini?theme=sith&dur=8
-
-Static frame (Entanglement):
-https://<your-app>.vercel.app/api/qrotator-mini?frame=entanglement
-
-```
-
-Animated, with username (XP + streak), Jedi theme:
-
-![Quantum Mini](https://yoda-level-github-badge.vercel.app/api/qrotator-mini?username=talquor&theme=jedi&dur=4&streak=1)
-
-
-Sith theme, slower rotation, show GitHub icon, custom label:
-
-![Quantum Mini](https://yoda-level-github-badge.vercel.app/api/qrotator-mini?username=talquor&theme=sith&dur=8&icon=github&label=QUANTUM)
-
-
-Force camo refresh while testing: add &t=now.
-
-![Quantum Concepts](https://yoda-level-github-badge.vercel.app/api/qrotator-mini?theme=jedi&dur=4)
-
-
-Tip while testing: append &t=now to force proxy recache.
-
-> Replace the domain with your deployment if different.
+> Replace the domain with your own deployment if you forked and redeployed this project.
 
 ---
 
@@ -117,30 +68,31 @@ Tip while testing: append &t=now to force proxy recache.
 
 **Core params**
 
-| Param          | Type   |   Default | Description                                                       |                                                          |
-| -------------- | ------ | --------: | ----------------------------------------------------------------- | -------------------------------------------------------- |
-| `username`     | string |         — | GitHub username (required)                                        |                                                          |
-| `badge`        | \`0    |       1\` | `0`                                                               | `1` → return SVG badge; `0` → JSON                       |
-| `label`        | string |    `Rank` | Left-side label                                                   |                                                          |
-| `logo`         | enum   |   `saber` | `galaxy` \| `saber` \| `github`                                   |                                                          |
-| `theme`        | enum   |    `jedi` | `jedi` \| `sith`                                                  |                                                          |
-| `granular`     | \`0    |       1\` | `0`                                                               | Show sub-rank I–IV inside the tier                       |
-| `xp`           | enum   |    `dots` | `dots` \| `bar` \| `none`                                         |                                                          |
-| `showPoints`   | \`0    |       1\` | `0`                                                               | Append score (e.g., `82.5 pts`)                          |
-| `showNext`     | \`0    |       1\` | `0`                                                               | Append delta to next tier (e.g., `+2.0 to Grand Master`) |
-| `streak`       | \`0    |       1\` | `0`                                                               | Show streak on the badge text                            |
-| `streakMode`   | enum   | `classic` | `classic` (consecutive days ≥1) \| `momentum` (7-day sum uptrend) |                                                          |
-| `streakWindow` | number |     `120` | Days of history for streak calc (30–365)                          |                                                          |
+| Param          | Type   | Default   | Description                                                       |
+| -------------- | ------ | --------- | ------------------------------------------------------------------ |
+| `username`     | string | —         | GitHub username (required)                                        |
+| `badge`        | 0\|1   | `0`       | `1` → return SVG badge; `0` → JSON                                 |
+| `label`        | string | `Rank`    | Left-side label                                                   |
+| `logo`         | enum   | `saber`   | `galaxy` \| `saber` \| `github`                                    |
+| `theme`        | enum   | `jedi`    | `jedi` \| `sith`                                                   |
+| `granular`     | 0\|1   | `0`       | Show sub-rank I–IV inside the tier                                 |
+| `xp`           | enum   | `dots`    | `dots` \| `bar` \| `none`                                          |
+| `showPoints`   | 0\|1   | `0`       | Append score (e.g., `82.5 pts`)                                    |
+| `showNext`     | 0\|1   | `0`       | Append delta to next tier (e.g., `+2.0 to Grand Master`)           |
+| `streak`       | 0\|1   | `0`       | Show streak on the badge text                                     |
+| `streakMode`   | enum   | `classic` | `classic` (consecutive days ≥1) \| `momentum` (2-day rolling window) |
+| `streakSource` | enum   | `calendar`| `calendar` \| `events` \| `hybrid` (merges both, taking the max)   |
+| `streakWindow` | number | `120`     | Days of history for streak calc (30–365)                           |
 
 **JSON example**
 
 ```
-/api/user-rank?username=talquor
+/api/user-rank?username=CosminBMemetea
 ```
 
 ```json
 {
-  "username": "talquor",
+  "username": "CosminBMemetea",
   "points": 73.4,
   "rank": "B",
   "persona": "Rebel Pilot",
@@ -170,20 +122,20 @@ Tip while testing: append &t=now to force proxy recache.
 
 **Params**
 
-| Param        | Type   |       Default | Description                                                 |                           |
-| ------------ | ------ | ------------: | ----------------------------------------------------------- | ------------------------- |
-| `label`      | string |        `Rank` | Left-side text                                              |                           |
-| `persona`    | string | `Master Yoda` | Right persona (ignored if `points` is provided)             |                           |
-| `grade`      | string |         `S++` | Right grade (ignored if `points` is provided)               |                           |
-| `points`     | number |             — | If provided, maps points→tier and fills persona/grade/color |                           |
-| `granular`   | \`0    |           1\` | `0`                                                         | Show I–IV inside tier     |
-| `xp`         | enum   |        `dots` | `dots` \| `bar` \| `none`                                   |                           |
-| `showPoints` | \`0    |           1\` | `0`                                                         | Append numeric points     |
-| `showNext`   | \`0    |           1\` | `0`                                                         | Add distance to next tier |
-| `logo`       | enum   |       `saber` | `galaxy` \| `saber` \| `github`                             |                           |
-| `theme`      | enum   |        `jedi` | `jedi` \| `sith`                                            |                           |
+| Param        | Type   | Default       | Description                                                  |
+| ------------ | ------ | ------------- | -------------------------------------------------------------|
+| `label`      | string | `Rank`        | Left-side text                                                |
+| `persona`    | string | `Master Yoda` | Right persona (ignored if `points` is provided)                |
+| `grade`      | string | `S++`         | Right grade (ignored if `points` is provided)                  |
+| `points`     | number | —             | If provided, maps points→tier and fills persona/grade/color    |
+| `granular`   | 0\|1   | `0`           | Show I–IV inside tier                                          |
+| `xp`         | enum   | `dots`        | `dots` \| `bar` \| `none`                                      |
+| `showPoints` | 0\|1   | `0`           | Append numeric points                                          |
+| `showNext`   | 0\|1   | `0`           | Add distance to next tier                                      |
+| `logo`       | enum   | `saber`       | `galaxy` \| `saber` \| `github`                                 |
+| `theme`      | enum   | `jedi`        | `jedi` \| `sith`                                                |
 
-**Examples**
+**Example**
 
 ```
 /api/badge?points=82.5&label=Rank&granular=1&xp=bar&showPoints=1&showNext=1&logo=galaxy
@@ -194,24 +146,51 @@ Tip while testing: append &t=now to force proxy recache.
 ### 3) `/api/duel` — Head-to-head Rank Duel (shareable SVG poster)
 
 * **Method**: `GET`
-* **Returns**: `SVG`
+* **Returns**: `SVG` when `badge` isn't `0`, otherwise `JSON`
 
 **Params**
 
-| Param   | Type   |     Default | Description                       |
-| ------- | ------ | ----------: | --------------------------------- |
-| `u1`    | string |           — | First GitHub username (required)  |
-| `u2`    | string |           — | Second GitHub username (required) |
-| `label` | string | `Rank Duel` | Title displayed at top            |
-| `logo`  | enum   |    `galaxy` | `galaxy` \| `saber` \| `github`   |
-| `xp`    | enum   |       `bar` | `dots` \| `bar` \| `none`         |
-| `theme` | enum   |      `jedi` | `jedi` \| `sith`                  |
+| Param   | Type   | Default | Description                                             |
+| ------- | ------ | ------- | -------------------------------------------------------- |
+| `user1` | string | —       | First GitHub username (required; `u1` also works)        |
+| `user2` | string | —       | Second GitHub username (required; `u2` also works)       |
+| `theme` | enum   | `jedi`  | `jedi` \| `sith`                                          |
+| `icon1` | enum   | `saber` | `github` \| `saber` \| `galaxy` \| `none` — left icon      |
+| `icon2` | enum   | `galaxy`| `github` \| `saber` \| `galaxy` \| `none` — right icon     |
+| `badge` | 0\|1   | `1`     | `0` → return JSON instead of SVG                          |
 
-**Examples**
+**Example**
 
 ```
-/api/duel?u1=talquor&u2=torvalds&theme=jedi&xp=bar&logo=galaxy
-/api/duel?u1=talquor&u2=drmxm&theme=jedi&xp=bar&logo=galaxy
+/api/duel?user1=CosminBMemetea&user2=torvalds&theme=jedi
+```
+
+---
+
+### 4) `/api/trials` — Achievement badges
+
+* **Method**: `GET`
+* **Returns**: `SVG` (icon strip or card grid), or `JSON` with `json=1`
+
+**Params**
+
+| Param          | Type   | Default      | Description                                              |
+| -------------- | ------ | ------------ | ---------------------------------------------------------- |
+| `username`     | string | —            | GitHub username (required)                                 |
+| `theme`        | enum   | `jedi`       | `jedi` \| `sith`                                            |
+| `detailed`     | 0\|1   | `0`          | `1` → multi-row card grid with descriptions; `0` → compact icon strip |
+| `labels`       | 0\|1   | `0`          | Show short labels under icons in compact mode                |
+| `cols`         | number | `3`          | Columns for the `detailed` card grid (1–4)                  |
+| `title`        | string | `Yoda Trials`| Heading text                                                |
+| `streakWindow` | number | `180`        | Days of history used for the streak-based trial (30–400)     |
+| `json`         | 0\|1   | `0`          | `1` → return raw JSON instead of SVG                        |
+
+Trials unlock based on recent activity: commits in the last 7/30 days, merged PRs, PR reviews, commit streaks, distinct issues opened, total stars, and reaching S-tier.
+
+**Example**
+
+```
+/api/trials?username=CosminBMemetea&theme=jedi&detailed=1
 ```
 
 ---
@@ -232,7 +211,7 @@ Sub-ranks inside each tier: **I** (entry) → **IV** (top).
 
 ## 🔐 Environment Variables
 
-| Name           |   Required  | Purpose                                                                                                                                                 |
+| Name           | Required    | Purpose                                                                                                                                                  |
 | -------------- | :---------: | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GITHUB_TOKEN` | Recommended | Enables GitHub **GraphQL** (richer metrics + 5,000 req/hr). Public-data scope is enough. Without it, the app falls back to REST with lower rate limits. |
 
@@ -277,16 +256,14 @@ npm run build
 
 ## 🛠 Troubleshooting
 
-* **Broken SVG / XML error**: You’re hitting older code or a cached response. Re-deploy and add `&t=1` to the URL.
+* **Broken SVG / XML error**: You're hitting a cached response. Re-deploy and add `&t=1` to the URL.
+* **Streak looks wrong**: Hit `/api/streak-debug?username=YOUR_USERNAME` — it returns the raw per-day counts and computed streak so you can see exactly what's being counted. Without your own `GITHUB_TOKEN`, only public contributions are visible.
 * **Module not found (`@/lib/...`)**:
-
   * Ensure `tsconfig.json` has:
-
     ```json
     { "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["./*"] } } }
     ```
   * Or use relative imports like `../../../lib/rank`.
-* **TypeScript error about `'none'` for `progressVariant`**: Make sure `/api/duel` maps `xp=none` → `undefined` (fixed in current version).
 * **Rate limited / `"method":"rest"`**: Set `GITHUB_TOKEN` in env and redeploy.
 
 ---
