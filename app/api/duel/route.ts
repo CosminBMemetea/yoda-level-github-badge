@@ -1,14 +1,18 @@
 // app/api/duel/route.ts
-import {
-  fetchUserMetricsGraphQL,
-  fetchUserREST,
-  fetchReposREST,
-} from '@/lib/github';
-import { scoreFromGraphQL, scoreFromREST, applyLegendOverride } from '@/lib/score';
 import { tierWithBand, textWidth } from '@/lib/rank';
-import { themeColors, type Theme } from '@/lib/theme';
+import { themeColors } from '@/lib/theme';
+import { computeUserPoints, describeError } from '@/lib/points';
+import {
+  cacheHeaders,
+  errorResponse,
+  isValidGitHubLogin,
+  jsonResponse,
+  parseEnum,
+  resolveToken,
+  svgResponse
+} from '@/lib/http';
 
-export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 type Icon = 'github' | 'saber' | 'galaxy' | 'none';
 
@@ -70,55 +74,22 @@ function fitTextToWidth(s: string, max: number, bold = false): { text: string; w
   return { text: '…', width: textWidth('…', bold ? 'bold' : 'normal') };
 }
 
-async function computePoints(username: string, token?: string) {
-  const gql = await fetchUserMetricsGraphQL(username, token);
-  if (gql) {
-    return {
-      method: 'graphql' as const,
-      points: scoreFromGraphQL(gql),
-      approxStars: gql.totalStars,
-      approxFollowers: gql.followers
-    };
-  }
-  const [u, repos] = await Promise.all([
-    fetchUserREST(username, token),
-    fetchReposREST(username, token)
-  ]);
-  const points = scoreFromREST({
-    followers: u.followers ?? 0,
-    publicRepos: u.public_repos ?? 0,
-    createdAt: u.created_at ?? new Date().toISOString(),
-    repos: (repos ?? []).map((r: any) => ({
-      stargazers_count: r.stargazers_count ?? 0,
-      forks_count: r.forks_count ?? 0,
-      language: r.language ?? null,
-      pushed_at: r.pushed_at ?? null,
-      updated_at: r.updated_at ?? null,
-    })),
-    events: []
-  });
-  const approxStars = (repos ?? []).reduce((s: number, r: any) => s + (r?.stargazers_count || 0), 0);
-  const approxFollowers = u.followers ?? 0;
-  return { method: 'rest' as const, points, approxStars, approxFollowers };
-}
-
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const user1 = searchParams.get('user1') || searchParams.get('u1');
   const user2 = searchParams.get('user2') || searchParams.get('u2');
 
-  if (!user1 || !user2) {
-    return new Response(JSON.stringify({ error: 'Missing ?user1=&user2= (or ?u1=&u2=)' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-    });
-  }
-
   // Options
   const badge = searchParams.get('badge') !== '0'; // default svg
-  const theme = (searchParams.get('theme') ?? 'jedi') as Theme;
-  const icon1 = (searchParams.get('icon1') ?? 'saber') as Icon;
-  const icon2 = (searchParams.get('icon2') ?? 'galaxy') as Icon;
+  const theme = parseEnum(searchParams.get('theme'), ['jedi', 'sith'] as const, 'jedi');
+  const ICONS = ['github', 'saber', 'galaxy', 'none'] as const;
+  const icon1: Icon = parseEnum(searchParams.get('icon1'), ICONS, 'saber');
+  const icon2: Icon = parseEnum(searchParams.get('icon2'), ICONS, 'galaxy');
+
+  if (!user1 || !user2) return errorResponse(400, 'Missing ?user1=&user2=', badge);
+  if (!isValidGitHubLogin(user1) || !isValidGitHubLogin(user2)) {
+    return errorResponse(400, 'Invalid GitHub username', badge);
+  }
 
   // Layout caps (prevent overflow while keeping readability)
   const PAD = 14;
@@ -128,44 +99,29 @@ export async function GET(req: Request) {
   const MIN_SIDE = 210;                   // min width per side
   const MAX_SIDE = 300;                   // max width per side before ellipsis
 
-  // Token (Authorization > env)
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
-  let headerToken: string | undefined;
-  {
-    const parts = authHeader.split(/\s+/);
-    if (parts.length >= 2) {
-      const scheme = parts[0].toLowerCase();
-      if (scheme === 'bearer' || scheme === 'token') headerToken = parts[1]?.trim();
-    }
-  }
-  const token = headerToken || process.env.GITHUB_TOKEN;
+  const { token, fromHeader } = resolveToken(req);
 
   // Compute points/tiers
   let a: any, b: any;
   try {
-    const [pa, pb] = await Promise.all([computePoints(user1, token), computePoints(user2, token)]);
-    pa.points = applyLegendOverride(user1, pa.points, pa.approxStars, pa.approxFollowers);
-    pb.points = applyLegendOverride(user2, pb.points, pb.approxStars, pb.approxFollowers);
+    const [pa, pb] = await Promise.all([computeUserPoints(user1, token), computeUserPoints(user2, token)]);
     a = { user: user1, ...pa, ...tierWithBand(pa.points) };
     b = { user: user2, ...pb, ...tierWithBand(pb.points) };
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || 'Failed to compute duel' }), {
-      status: 502,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-    });
+  } catch (e) {
+    const { status, message } = describeError(e);
+    return errorResponse(status, message, badge);
   }
+  const caching = cacheHeaders(600, fromHeader);
 
   const winner =
     a.points === b.points ? 'tie' : (a.points > b.points ? 'left' : 'right');
 
   if (!badge) {
-    return new Response(JSON.stringify({
+    return jsonResponse({
       a: { user: a.user, rank: a.tier.grade, persona: a.tier.name, band: a.bandRoman, points: a.points },
       b: { user: b.user, rank: b.tier.grade, persona: b.tier.name, band: b.bandRoman, points: b.points },
       winner
-    }, null, 2), {
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
-    });
+    }, { headers: caching });
   }
 
   // Compose labels (2 lines per side)
@@ -209,8 +165,11 @@ export async function GET(req: Request) {
   // Progress
   const prA = Math.max(0, Math.min(1, (a.pctToNext ?? 0) / 100));
   const prB = Math.max(0, Math.min(1, (b.pctToNext ?? 0) / 100));
-  const maxedA = (a.pctToNext ?? 0) <= 0;
-  const maxedB = (b.pctToNext ?? 0) <= 0;
+  // Only the top tier is "maxed". (Previously pctToNext <= 0 was used, which is
+  // also true at the very start of every tier, so e.g. exactly 70.0 pts drew a
+  // full saber bar.)
+  const maxedA = !a.nextTier;
+  const maxedB = !b.nextTier;
 
   // Theme colors
   const tc = themeColors(theme);
@@ -300,12 +259,5 @@ export async function GET(req: Request) {
           font-size="14">👑</text>` : ''}
 </svg>`.trim();
 
-  return new Response(svg, {
-    headers: {
-      'Content-Type': 'image/svg+xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=0, s-maxage=600, must-revalidate',
-      'Access-Control-Allow-Origin': '*',
-      'Vary': 'Authorization, Accept-Encoding'
-    }
-  });
+  return svgResponse(svg, caching);
 }

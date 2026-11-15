@@ -34,6 +34,8 @@ const Card = ({ title, subtitle, children, right }) => (
 
 const SegButton = ({ active, onClick, children }) => (
   <button
+    type="button"
+    aria-pressed={active}
     onClick={onClick}
     style={{
       padding: '6px 10px',
@@ -69,6 +71,7 @@ const CopyBtn = ({ text }) => {
   const [ok, setOk] = useState(false);
   return (
     <button
+      type="button"
       onClick={async () => {
         try { await navigator.clipboard.writeText(text); setOk(true); setTimeout(()=>setOk(false), 1500); } catch {}
       }}
@@ -85,7 +88,9 @@ const CopyBtn = ({ text }) => {
 
 export default function UIShowcase() {
   // Controls
-  const [username, setUsername] = useState('CosminBMemetea');
+  const [usernameInput, setUsername] = useState('CosminBMemetea');
+  // Keep previews working while the field is empty or mid-edit.
+  const username = /^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$/.test(usernameInput) ? usernameInput : 'octocat';
   const [theme, setTheme] = useState('jedi'); // 'jedi' | 'sith'
   const [streak, setStreak] = useState(true);
   const [streakSource, setStreakSource] = useState('hybrid'); // 'calendar' | 'events' | 'hybrid'
@@ -114,11 +119,20 @@ export default function UIShowcase() {
     return `/api/streak-debug?${q}`;
   }, [username, streakSource]);
 
-  // Markdown snippets
+  // Markdown snippets must use absolute URLs: a relative /api/... path copied
+  // into a GitHub README resolves against github.com and renders broken.
+  const [origin, setOrigin] = useState('');
+  useEffect(() => {
+    setOrigin(window.location.origin);
+    // Shareable links: /ui?username=octocat&theme=sith
+    const q = new URLSearchParams(window.location.search);
+    if (q.get('username')) setUsername(q.get('username').trim());
+    if (q.get('theme') === 'sith' || q.get('theme') === 'jedi') setTheme(q.get('theme'));
+  }, []);
   const md = {
-    rank: `![Rank](${userRankUrl})`,
-    trials: `![Yoda Trials](${trialsUrl})`,
-    duel: `![Duel](${duelUrl})`
+    rank: `![Rank](${origin}${userRankUrl})`,
+    trials: `![Yoda Trials](${origin}${trialsUrl})`,
+    duel: `![Duel](${origin}${duelUrl})`
   };
 
   // Background starfield animation (CSS vars)
@@ -172,7 +186,7 @@ export default function UIShowcase() {
             }}>
               <div style={{fontSize:12, color:'#9CA3AF'}}>GitHub Username</div>
               <input
-                value={username}
+                value={usernameInput}
                 onChange={(e) => setUsername(e.target.value.trim())}
                 placeholder="your-username"
                 style={{
@@ -270,36 +284,8 @@ export default function UIShowcase() {
             </Card>
           </div>
 
-          {/* Placeholders / Coming Soon */}
-          <div style={{gridColumn:'span 12', display:'grid', gridTemplateColumns:'repeat(12,1fr)', gap:16}}>
-            <div style={{gridColumn:'span 6'}}>
-              <Card title="Leaderboard (Coming Soon)" subtitle="Friends / org / custom lists">
-                <Placeholder />
-              </Card>
-            </div>
-            <div style={{gridColumn:'span 6'}}>
-              <Card title="Collections (Coming Soon)" subtitle="Bundle several badges together">
-                <Placeholder />
-              </Card>
-            </div>
-          </div>
         </div>
       </main>
-    </div>
-  );
-}
-
-function Placeholder() {
-  return (
-    <div style={{
-      display:'grid', placeItems:'center', height:120,
-      background:'repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0, rgba(255,255,255,0.05) 8px, rgba(255,255,255,0.02) 8px, rgba(255,255,255,0.02) 16px)',
-      borderRadius:10, color:'#93C5FD', fontSize:12, border:'1px dashed rgba(255,255,255,0.16)'
-    }}>
-      <div style={{textAlign:'center'}}>
-        <div style={{fontWeight:700, color:'#E5E7EB'}}>UI Placeholder</div>
-        <div style={{opacity:0.85}}>Hook this up to a new /api route anytime</div>
-      </div>
     </div>
   );
 }

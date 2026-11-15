@@ -23,7 +23,14 @@ export type GraphQLInputs = {
   repoContribs: number;
 };
 
-const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
+/** Clamp to [0,1]; NaN/undefined (e.g. from a malformed date) becomes 0 instead of poisoning the total. */
+const clamp01 = (x: number) => (Number.isFinite(x) ? Math.max(0, Math.min(1, x)) : x === Infinity ? 1 : 0);
+
+/** Clamp to 0..100 and keep 1 decimal; never returns NaN. */
+function roundScore(total: number): number {
+  if (!Number.isFinite(total)) return 0;
+  return Math.max(0, Math.min(100, Math.round(total * 10) / 10));
+}
 
 export const LEGEND_USERNAMES = new Set<string>(['torvalds']);
 
@@ -48,7 +55,7 @@ export function scoreFromGraphQL(m: GraphQLInputs): number {
   }
 
   const total = stars + commits + prs + issues + reviews + repos + followers + recency;
-  return Math.max(0, Math.min(100, Math.round(total * 10) / 10)); // keep 1 decimal
+  return roundScore(total);
 }
 
 export function scoreFromREST(r: RestInputs): number {
@@ -69,7 +76,7 @@ export function scoreFromREST(r: RestInputs): number {
   const eventPts = 5 * clamp01(recentEvents / 150);
 
   const total = starPts + forkPts + pushPts + langPts + followers + repoCount + agePts + eventPts;
-  return Math.max(0, Math.min(100, Math.round(total * 10) / 10)); // 1 decimal
+  return roundScore(total);
 }
 
 export function applyLegendOverride(username: string | null, points: number, approxStars?: number, approxFollowers?: number) {

@@ -1,161 +1,87 @@
 // app/api/user-rank/route.ts
-import {
-  fetchReposREST,
-  fetchEventsREST,
-  fetchUserREST,
-  fetchUserMetricsGraphQL,
-  fetchContributionCalendar
-} from '@/lib/github';
-import { scoreFromGraphQL, scoreFromREST, applyLegendOverride } from '@/lib/score';
 import { TIERS, tierWithBand } from '@/lib/rank';
 import { buildBadgeSVG } from '@/lib/badge';
+import { computeClassicStreak, computeMomentumStreak } from '@/lib/streak';
+import { loadStreakDays, STREAK_SOURCES } from '@/lib/activity';
+import { computeUserPoints, describeError } from '@/lib/points';
 import {
-  computeClassicStreak,
-  computeMomentumStreak,
-  fromContributionCalendar,
-  fromEvents,
-  normalizeDays,
-  toYMDUTC,
-  mergeDaysMax
-} from '@/lib/streak';
+  cacheHeaders,
+  cleanText,
+  errorResponse,
+  isValidGitHubLogin,
+  jsonResponse,
+  parseEnum,
+  parseIntClamped,
+  resolveToken,
+  svgResponse
+} from '@/lib/http';
 
-export const runtime = 'edge';
-
-type StreakMode = 'classic' | 'momentum';
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const username = searchParams.get('username');
-  if (!username) {
-    return new Response(JSON.stringify({ error: 'Missing ?username=' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-    });
-  }
-
   const badge = searchParams.get('badge') === '1';
-  const label = searchParams.get('label') ?? 'Rank';
-  const logo = (searchParams.get('logo') ?? 'saber') as 'github' | 'saber' | 'galaxy';
-  const theme = (searchParams.get('theme') ?? 'jedi') as 'jedi' | 'sith';
+
+  const username = searchParams.get('username');
+  if (!username) return errorResponse(400, 'Missing ?username=', badge);
+  if (!isValidGitHubLogin(username)) return errorResponse(400, 'Invalid GitHub username', badge);
+
+  const label = cleanText(searchParams.get('label'), 'Rank', 24);
+  const logo = parseEnum(searchParams.get('logo'), ['github', 'saber', 'galaxy'] as const, 'saber');
+  const theme = parseEnum(searchParams.get('theme'), ['jedi', 'sith'] as const, 'jedi');
 
   const granular   = searchParams.get('granular') === '1';
   const showPoints = searchParams.get('showPoints') === '1';
   const showNext   = searchParams.get('showNext') === '1';
-  const xpParam    = (searchParams.get('xp') ?? 'dots') as 'dots' | 'bar' | 'none';
+  const xpParam    = parseEnum(searchParams.get('xp'), ['dots', 'bar', 'none'] as const, 'dots');
 
   // Streak controls
-  const showStreak   = searchParams.get('streak') === '1';
-  const streakMode   = (searchParams.get('streakMode') ?? 'classic') as StreakMode;
-  const streakAnchor = (searchParams.get('streakAnchor') ?? 'lastActive') as 'today' | 'lastActive';
-  const streakDaysBack = Math.max(30, Math.min(365, parseInt(searchParams.get('streakWindow') || '120', 10) || 120));
-  const streakSource = (searchParams.get('streakSource') ?? 'calendar') as 'calendar' | 'events' | 'hybrid';
+  const showStreak     = searchParams.get('streak') === '1';
+  const streakMode     = parseEnum(searchParams.get('streakMode'), ['classic', 'momentum'] as const, 'classic');
+  const streakAnchor   = parseEnum(searchParams.get('streakAnchor'), ['today', 'lastActive'] as const, 'lastActive');
+  const streakDaysBack = parseIntClamped(searchParams.get('streakWindow'), 120, 30, 365);
+  const streakSource   = parseEnum(searchParams.get('streakSource'), STREAK_SOURCES, 'calendar');
 
-  // 🔐 Token priority: Authorization header ("Bearer" or "token" scheme) > env
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
-  let headerToken: string | undefined;
-  {
-    const parts = authHeader.split(/\s+/);
-    if (parts.length >= 2) {
-      const scheme = parts[0].toLowerCase();
-      if (scheme === 'bearer' || scheme === 'token') headerToken = parts[1]?.trim();
-    }
-  }
-  const token = headerToken || process.env.GITHUB_TOKEN;
+  const { token, fromHeader } = resolveToken(req);
 
-  let points = 0;
-  let used = 'rest';
-  let approxStars = 0;
-  let approxFollowers = 0;
-
+  let result;
   try {
-    const gql = await fetchUserMetricsGraphQL(username, token);
-    if (gql) {
-      points = scoreFromGraphQL(gql);
-      used = 'graphql';
-      approxStars = gql.totalStars;
-      approxFollowers = gql.followers;
-    } else {
-      const [u, repos, events] = await Promise.all([
-        fetchUserREST(username, token),
-        fetchReposREST(username, token),
-        fetchEventsREST(username, token)
-      ]);
-
-      points = scoreFromREST({
-        followers: u.followers ?? 0,
-        publicRepos: u.public_repos ?? 0,
-        createdAt: u.created_at ?? new Date().toISOString(),
-        repos: (repos ?? []).map((r: any) => ({
-          stargazers_count: r.stargazers_count ?? 0,
-          forks_count: r.forks_count ?? 0,
-          language: r.language ?? null,
-          pushed_at: r.pushed_at ?? null,
-          updated_at: r.updated_at ?? null,
-        })),
-        events: (events ?? []).map((e: any) => ({ type: e.type, created_at: e.created_at }))
-      });
-
-      approxStars = (repos ?? []).reduce((s: number, r: any) => s + (r?.stargazers_count || 0), 0);
-      approxFollowers = u.followers ?? 0;
-    }
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || 'GitHub fetch failed' }), {
-      status: 502,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-    });
+    result = await computeUserPoints(username, token);
+  } catch (e) {
+    const { status, message } = describeError(e);
+    return errorResponse(status, message, badge);
   }
-
-  // Legends override (e.g., Torvalds)
-  points = applyLegendOverride(username, points, approxStars, approxFollowers);
+  const { points, method } = result;
 
   const { tier, bandRoman, nextTier, pointsToNext, pctToNext } = tierWithBand(points);
   const progressRatio = Math.max(0, Math.min(1, (pctToNext ?? 0) / 100));
 
-  // STREAK
-  let streakDays: number | undefined = undefined;
+  // STREAK (best-effort: a failure hides the streak instead of failing the badge)
+  let streakDays: number | undefined;
+  let streakSourceUsed: string | undefined;
   if (showStreak) {
     try {
-      const minYMD = toYMDUTC(new Date(Date.now() - streakDaysBack * 86400000));
-      const maxYMD = toYMDUTC(new Date());
-
-      let byCal: { date: string; count: number }[] | undefined;
-      let byEvt: { date: string; count: number }[] | undefined;
-
-      if (streakSource !== 'events') {
-        const weeks = await fetchContributionCalendar(username, token, streakDaysBack);
-        if (weeks) {
-          const days = fromContributionCalendar(weeks);
-          byCal = normalizeDays(days, minYMD, maxYMD);
-        }
-      }
-      if (streakSource !== 'calendar') {
-        const events = await fetchEventsREST(username, token);
-        byEvt = fromEvents(events || [], streakDaysBack);
-      }
-
-      const chosen =
-        streakSource === 'calendar' ? (byCal || []) :
-        streakSource === 'events'   ? (byEvt || [])  :
-        mergeDaysMax(byCal || [], byEvt || []);
-
+      const { days, used } = await loadStreakDays(username, token, streakSource, streakDaysBack);
+      streakSourceUsed = used;
       streakDays =
         streakMode === 'momentum'
-          ? computeMomentumStreak(chosen)
-          : computeClassicStreak(chosen, streakAnchor);
+          ? computeMomentumStreak(days)
+          : computeClassicStreak(days, streakAnchor);
     } catch {
       streakDays = undefined;
     }
   }
 
   // Right-side text
-  const parts = [ granular ? `${tier.name} (${tier.grade}) • ${bandRoman}` : `${tier.name} (${tier.grade})` ];
+  const parts = [granular ? `${tier.name} (${tier.grade}) • ${bandRoman}` : `${tier.name} (${tier.grade})`];
   if (showPoints) parts.push(`${points.toFixed(1)} pts`);
   if (showNext && nextTier && pointsToNext !== undefined) parts.push(`+${pointsToNext.toFixed(1)} to ${nextTier.name}`);
   if (showStreak && typeof streakDays === 'number') parts.push(`🔥 ${streakDays}d streak`);
   const rightText = parts.join(' • ');
 
   // 🎖️ Maxed-out decoration for Yoda / S++
-  const isMaxed = tier.grade === 'S++' || points >= 98;
+  const isMaxed = tier.grade === 'S++';
+  const caching = cacheHeaders(1200, fromHeader);
 
   if (badge) {
     const { svg } = buildBadgeSVG({
@@ -168,26 +94,18 @@ export async function GET(req: Request) {
       theme,
       decorateMaxed: isMaxed
     });
-    return new Response(svg, {
-      headers: {
-        'Content-Type': 'image/svg+xml; charset=utf-8',
-        'Cache-Control': 'public, max-age=0, s-maxage=1200, must-revalidate',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
+    return svgResponse(svg, caching);
   }
 
-  return new Response(JSON.stringify({
+  return jsonResponse({
     username,
     points,
     rank: tier.grade,
     persona: tier.name,
     color: tier.color,
-    method: used,
-    streak: showStreak ? { mode: streakMode, days: streakDays } : undefined,
+    method,
+    streak: showStreak ? { mode: streakMode, days: streakDays, source: streakSourceUsed } : undefined,
     granular: { band: bandRoman, nextTier: nextTier?.name, pointsToNext, pctWithinTier: pctToNext },
     tiers: TIERS.map(t => ({ grade: t.grade, name: t.name, min: t.min }))
-  }), {
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-  });
+  }, { headers: caching });
 }

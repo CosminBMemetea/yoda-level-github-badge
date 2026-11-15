@@ -26,8 +26,14 @@ export const TIERS: Tier[] = [
   { name: "Force Beginner",   grade: "F",   min: 0,  color: "#dc2626" }
 ];
 
+/** Clamp any input (including NaN/Infinity) into the 0..100 point range. */
+export function clampPoints(points: number): number {
+  if (Number.isNaN(points)) return 0;
+  return Math.max(0, Math.min(100, points));
+}
+
 export function pickTierByPoints(points: number): Tier {
-  const p = Math.max(0, Math.min(100, Math.floor(points)));
+  const p = Math.floor(clampPoints(points));
   for (const t of TIERS) if (p >= t.min) return t;
   return TIERS[TIERS.length - 1];
 }
@@ -48,7 +54,7 @@ export function tierWithBand(points: number): {
   pointsToNext?: number;           // >=0
   pctToNext?: number;              // 0..100 within current tier
 } {
-  const p = Math.max(0, Math.min(100, points));
+  const p = clampPoints(points);
   const tier = pickTierByPoints(p);
 
   const idx = TIERS.findIndex(t => t.grade === tier.grade);
@@ -75,5 +81,6 @@ export function tierWithBand(points: number): {
 
 export function textWidth(txt: string, weight: "normal" | "bold" = "normal") {
   const perChar = weight === "bold" ? 8.6 : 7.2;
-  return Math.ceil(txt.length * perChar);
+  // Count code points, not UTF-16 units, so emoji are not measured as two glyphs.
+  return Math.ceil(Array.from(txt).length * perChar);
 }

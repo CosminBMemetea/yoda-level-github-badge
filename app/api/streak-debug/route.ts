@@ -1,117 +1,69 @@
 // app/api/streak-debug/route.ts
+import { computeClassicStreak, toYMDUTC } from '@/lib/streak';
+import { loadStreakDays } from '@/lib/activity';
+import { MAX_CALENDAR_DAYS } from '@/lib/github';
 import {
-  fetchContributionCalendar,
-  fetchEventsREST
-} from '@/lib/github';
-import {
-  fromContributionCalendar,
-  fromEvents,
-  normalizeDays,
-  toYMDUTC,
-  computeClassicStreak
-} from '@/lib/streak';
+  cacheHeaders,
+  errorResponse,
+  isValidGitHubLogin,
+  jsonResponse,
+  parseEnum,
+  parseIntClamped,
+  resolveToken
+} from '@/lib/http';
 
-export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 /**
  * Inspect your UTC-normalized per-day counts and the computed streak.
  *
  * Params:
  *   username (required)
- *   daysBack=180         : window size (30..400)
+ *   daysBack=180         : window size (30..365 — GitHub's calendar API max)
  *   anchor=today|lastActive (default lastActive)
- *   source=auto|calendar|events  (default auto; calendar preferred)
+ *   source=auto|calendar|events|hybrid  (default auto = calendar, falling back to events)
  *
- * Auth:
+ * Auth (optional):
  *   Send:  Authorization: Bearer <YOUR_GH_TOKEN>
- *   Without a token, GitHub returns only PUBLIC contributions in calendar.
+ *   Responses made with your own token are never stored in shared caches.
  */
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const username = searchParams.get('username');
-  if (!username) {
-    return new Response(JSON.stringify({ error: 'Missing ?username=' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-    });
-  }
+  if (!username) return errorResponse(400, 'Missing ?username=', false);
+  if (!isValidGitHubLogin(username)) return errorResponse(400, 'Invalid GitHub username', false);
 
-  const daysBack = Math.max(30, Math.min(400, parseInt(searchParams.get('daysBack') || '180', 10) || 180));
-  const anchor = (searchParams.get('anchor') || 'lastActive') as 'today' | 'lastActive';
-  const source = (searchParams.get('source') || 'auto') as 'auto' | 'calendar' | 'events';
+  const daysBack = parseIntClamped(searchParams.get('daysBack'), 180, 30, MAX_CALENDAR_DAYS);
+  const anchor = parseEnum(searchParams.get('anchor'), ['today', 'lastActive'] as const, 'lastActive');
+  const source = parseEnum(searchParams.get('source'), ['auto', 'calendar', 'events', 'hybrid'] as const, 'auto');
 
-  // Token from header or env
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
-  let headerToken: string | undefined;
-  {
-    const parts = authHeader.split(/\s+/);
-    if (parts.length >= 2) {
-      const scheme = parts[0].toLowerCase();
-      if (scheme === 'bearer' || scheme === 'token') headerToken = parts[1]?.trim();
-    }
-  }
-  const token = headerToken || process.env.GITHUB_TOKEN;
+  const { token, fromHeader } = resolveToken(req);
 
-  let used: 'calendar' | 'events' = 'calendar';
-  let dense: { date: string; count: number }[] = [];
-  let rawDays: { date: string; count: number }[] = [];
-  let calendarError: string | undefined;
-
+  let result;
   try {
-    if (source !== 'events') {
-      try {
-        const weeks = await fetchContributionCalendar(username, token, daysBack);
-        if (weeks) {
-          rawDays = fromContributionCalendar(weeks);
-          const minYMD = toYMDUTC(new Date(Date.now() - daysBack * 86400000));
-          const maxYMD = toYMDUTC(new Date());
-          dense = normalizeDays(rawDays, minYMD, maxYMD);
-        } else {
-          calendarError = 'Calendar returned empty (unauthenticated? rate-limited? user has no public activity?)';
-          if (source === 'calendar') throw new Error(calendarError);
-          used = 'events';
-        }
-      } catch (err: any) {
-        calendarError = err?.message || 'Calendar fetch failed';
-        if (source === 'calendar') throw err;
-        used = 'events';
-      }
-    } else {
-      used = 'events';
-    }
-
-    if (used === 'events') {
-      const events = await fetchEventsREST(username, token);
-      rawDays = fromEvents(events || [], daysBack);
-      dense = rawDays;
-    }
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || 'GitHub fetch failed (calendar/events)' }), {
-      status: 502,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-    });
+    result = await loadStreakDays(username, token, source === 'auto' ? 'calendar' : source, daysBack);
+  } catch {
+    return errorResponse(502, 'GitHub fetch failed (calendar/events)', false);
   }
+  const dense = result.days;
 
-  const utcToday = toYMDUTC(new Date());
-  const streak = computeClassicStreak(dense, anchor);
-  const streakToday = computeClassicStreak(dense, 'today');
-  const streakLastActive = computeClassicStreak(dense, 'lastActive');
+  const calendarError =
+    source !== 'events' && result.used === 'events'
+      ? 'Contribution calendar unavailable (no token configured, rate-limited, or user not found); used public events instead.'
+      : undefined;
 
-  return new Response(JSON.stringify({
+  return jsonResponse({
     username,
-    used,                          // 'calendar' or 'events'
-    calendarError,                 // helps explain fallback
-    note:
-      'Without your own token, private contributions are NOT included by GitHub.',
+    used: result.used,
+    calendarError,
+    note: 'Without a token, only public activity is visible. Public events only cover ~90 days.',
     anchorUsed: anchor,
-    utcToday,
-    streak,
-    streak_today: streakToday,
-    streak_lastActive: streakLastActive,
+    utcToday: toYMDUTC(new Date()),
+    streak: computeClassicStreak(dense, anchor),
+    streak_today: computeClassicStreak(dense, 'today'),
+    streak_lastActive: computeClassicStreak(dense, 'lastActive'),
     daysBack,
     recent30: dense.slice(-30),
     fullWindow: dense
-  }, null, 2), {
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-  });
+  }, { headers: cacheHeaders(300, fromHeader) });
 }

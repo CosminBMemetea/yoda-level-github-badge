@@ -1,22 +1,26 @@
 # -------- build stage --------
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 
-# copy everything (simplest + robust when no lockfile)
-COPY . .
+COPY package.json package-lock.json ./
+RUN npm ci
 
-# install deps, build Next, then prune dev deps
-RUN npm install
-RUN npm run build
-RUN npm prune --omit=dev
+COPY . .
+RUN npm run build && npm prune --omit=dev
 
 # -------- runtime stage --------
-FROM node:20-alpine
-ENV NODE_ENV=production
+FROM node:22-alpine
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000
 WORKDIR /app
 
-# bring over built app + pruned node_modules
-COPY --from=build /app /app
+COPY --from=build --chown=node:node /app/package.json ./
+COPY --from=build --chown=node:node /app/node_modules ./node_modules
+COPY --from=build --chown=node:node /app/.next ./.next
+COPY --from=build --chown=node:node /app/next.config.mjs ./
 
+# Don't run as root.
+USER node
 EXPOSE 3000
-CMD ["npx","next","start","-H","0.0.0.0","-p","3000"]
+CMD ["node_modules/.bin/next", "start", "-H", "0.0.0.0", "-p", "3000"]

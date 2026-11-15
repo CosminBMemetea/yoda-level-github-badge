@@ -1,13 +1,7 @@
 // app/api/trials/route.ts
-import { themeColors, type Theme } from '@/lib/theme';
-import {
-  fetchUserMetricsGraphQL,
-  fetchUserREST,
-  fetchReposREST,
-  fetchEventsREST,
-  fetchContributionCalendar
-} from '@/lib/github';
-import { scoreFromGraphQL, scoreFromREST, applyLegendOverride } from '@/lib/score';
+import { themeColors } from '@/lib/theme';
+import { fetchContributionCalendar, fetchEventsREST, fetchReposREST, fetchUserREST, MAX_CALENDAR_DAYS } from '@/lib/github';
+import { computeUserPoints, describeError } from '@/lib/points';
 import { tierWithBand } from '@/lib/rank';
 import {
   fromContributionCalendar,
@@ -17,8 +11,19 @@ import {
   mergeDaysMax,
   fromEvents
 } from '@/lib/streak';
+import {
+  cacheHeaders,
+  cleanText,
+  errorResponse,
+  isValidGitHubLogin,
+  JSON_HEADERS,
+  parseEnum,
+  parseIntClamped,
+  resolveToken,
+  SVG_HEADERS
+} from '@/lib/http';
 
-export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 type Mode = 'svg' | 'json';
 
@@ -88,39 +93,27 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
 
   // Inputs
-  const username = searchParams.get('username');
-  if (!username) {
-    return new Response(JSON.stringify({ error: 'Missing ?username=' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-    });
-  }
-
   const mode: Mode = searchParams.get('json') === '1' ? 'json' : 'svg';
-  const theme = (searchParams.get('theme') ?? 'jedi') as Theme;
+  const username = searchParams.get('username');
+  if (!username) return errorResponse(400, 'Missing ?username=', mode === 'svg');
+  if (!isValidGitHubLogin(username)) return errorResponse(400, 'Invalid GitHub username', mode === 'svg');
+
+  const theme = parseEnum(searchParams.get('theme'), ['jedi', 'sith'] as const, 'jedi');
   const tc = themeColors(theme);
 
   // Layout params
   const detailed = searchParams.get('detailed') === '1';
-  const title    = esc((searchParams.get('title') ?? 'Yoda Trials').toUpperCase());
+  const title    = esc(cleanText(searchParams.get('title'), 'Yoda Trials', 40).toUpperCase());
   const showLabels = !detailed && searchParams.get('labels') === '1'; // compact labels optional
   const pad = 10;
 
-  // Streak parameters
-  const streakWindow = Math.max(30, Math.min(400, parseInt(searchParams.get('streakWindow') || '180', 10) || 180));
-  const anchor = (searchParams.get('anchor') || 'lastActive') as 'today' | 'lastActive';
+  // Streak parameters (GitHub's calendar API cannot go back further than a year)
+  const streakWindow = parseIntClamped(searchParams.get('streakWindow'), 180, 30, MAX_CALENDAR_DAYS);
+  const anchor = parseEnum(searchParams.get('anchor'), ['today', 'lastActive'] as const, 'lastActive');
 
   // 🔐 Token via Authorization header or env
-  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
-  let headerToken: string | undefined;
-  {
-    const parts = authHeader.split(/\s+/);
-    if (parts.length >= 2) {
-      const scheme = parts[0].toLowerCase();
-      if (scheme === 'bearer' || scheme === 'token') headerToken = parts[1]?.trim();
-    }
-  }
-  const token = headerToken || process.env.GITHUB_TOKEN;
+  const { token, fromHeader } = resolveToken(req);
+  const caching = cacheHeaders(900, fromHeader);
 
   // ----- Data Gathering (more accurate) -----
   // 1) User + repos for followers/stars
@@ -138,10 +131,10 @@ export async function GET(req: Request) {
   let distinctIssues30d = 0;
   let mergedPRs30d = 0;
   let reviews30d = 0;
-  let cachedEvents: any[] | null = null;
   let sourceUsed: 'calendar' | 'events' | 'hybrid' = 'events';
 
   try {
+    // User + repos are required: a missing user / rate limit is a hard error.
     const [u, repos, events] = await Promise.all([
       fetchUserREST(username, token),
       fetchReposREST(username, token),
@@ -149,28 +142,10 @@ export async function GET(req: Request) {
     ]);
 
     followers = u?.followers ?? 0;
-    totalStars = (repos ?? []).reduce((s: number, r: any) => s + (r?.stargazers_count || 0), 0);
+    totalStars = repos.reduce((s: number, r: any) => s + (r?.stargazers_count || 0), 0);
 
-    // Points: GraphQL preferred
-    const gql = await fetchUserMetricsGraphQL(username, token);
-    if (gql) {
-      points = scoreFromGraphQL(gql);
-    } else {
-      points = scoreFromREST({
-        followers: u?.followers ?? 0,
-        publicRepos: u?.public_repos ?? 0,
-        createdAt: u?.created_at ?? new Date().toISOString(),
-        repos: (repos ?? []).map((r: any) => ({
-          stargazers_count: r.stargazers_count ?? 0,
-          forks_count: r.forks_count ?? 0,
-          language: r.language ?? null,
-          pushed_at: r.pushed_at ?? null,
-          updated_at: r.updated_at ?? null
-        })),
-        events: [] // not needed here
-      });
-    }
-    points = applyLegendOverride(username, points, totalStars, followers);
+    // Points: same scoring as /api/user-rank so the two never disagree
+    points = (await computeUserPoints(username, token, { user: u, repos, events })).points;
 
     // Contribution calendar (most accurate for commits/streak) + events fallback and hybrid streak
     const weeks = await fetchContributionCalendar(username, token, Math.max(120, streakWindow));
@@ -191,10 +166,9 @@ export async function GET(req: Request) {
     }
 
     // Events-derived (approximate, public-only)
-    cachedEvents = events || [];
     let denseEv: { date: string; count: number }[] = [];
-    if (cachedEvents && Array.isArray(cachedEvents) && cachedEvents.length) {
-      const evDays = fromEvents(cachedEvents, Math.max(120, streakWindow));
+    if (events.length) {
+      const evDays = fromEvents(events, Math.max(120, streakWindow));
       denseEv = normalizeDays(evDays, minYMDStreak, maxYMD);
     }
 
@@ -220,9 +194,7 @@ export async function GET(req: Request) {
 
     // REST events → distinct PR/Issue counts for last 30 days (best-effort)
     {
-      // Reuse events if already fetched (fallback path above)
-      const events = cachedEvents ?? await fetchEventsREST(username, token);
-      if (events && Array.isArray(events)) {
+      if (Array.isArray(events)) {
         const sinceMs = Date.now() - 30 * 86400000;
         const prKeys = new Set<string>();
         const issueKeys = new Set<string>();
@@ -230,7 +202,9 @@ export async function GET(req: Request) {
         const reviewPrKeys = new Set<string>();
 
         for (const e of events) {
-          const t = new Date(e?.created_at || e?.createdAt || e?.timestamp || Date.now()).getTime();
+          // Skip events without a timestamp rather than treating them as "now".
+          const raw = e?.created_at || e?.createdAt || e?.timestamp;
+          const t = raw ? new Date(raw).getTime() : NaN;
           if (!Number.isFinite(t) || t < sinceMs) continue;
           const parsed = parseEventKey(e);
           if (parsed.kind === 'pr' && parsed.key) prKeys.add(parsed.key);
@@ -256,14 +230,9 @@ export async function GET(req: Request) {
         reviews30d = reviewPrKeys.size;
       }
     }
-  } catch (err: any) {
-    // tolerate partial data; if totally failed, return error
-    if (!followers && !totalStars && !points) {
-      return new Response(JSON.stringify({ error: err?.message || 'GitHub data fetch failed' }), {
-        status: 502,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-      });
-    }
+  } catch (err) {
+    const { status, message } = describeError(err);
+    return errorResponse(status, message, mode === 'svg');
   }
 
   // Tier for mastery trial
@@ -355,6 +324,14 @@ export async function GET(req: Request) {
     return 'W/"' + (h >>> 0).toString(16) + '"';
   };
 
+  // Conditional GET support. Headers are identical for 200 and 304.
+  const respondWithEtag = (body: string, contentHeaders: Record<string, string>) => {
+    const tag = etag(body);
+    const headers = { ...contentHeaders, ...caching, 'ETag': tag, 'Vary': 'Authorization, If-None-Match' };
+    if (req.headers.get('if-none-match') === tag) return new Response(null, { status: 304, headers });
+    return new Response(body, { headers });
+  };
+
   if (mode === 'json') {
     const bodyObj = {
       username,
@@ -371,29 +348,7 @@ export async function GET(req: Request) {
       sourceUsed,
       trials
     };
-    const body = JSON.stringify(bodyObj);
-    const tag = etag(body);
-    const inm = req.headers.get('if-none-match');
-    if (inm && inm === tag) {
-      return new Response(null, {
-        status: 304,
-        headers: {
-          'ETag': tag,
-          'Cache-Control': 'public, max-age=0, s-maxage=900, must-revalidate',
-          'Access-Control-Allow-Origin': '*',
-          'Vary': 'Authorization, Accept-Encoding, If-None-Match'
-        }
-      });
-    }
-    return new Response(body, {
-      headers: {
-        'Content-Type': 'application/json',
-        'ETag': tag,
-        'Cache-Control': 'public, max-age=0, s-maxage=900, must-revalidate',
-        'Access-Control-Allow-Origin': '*',
-        'Vary': 'Authorization, Accept-Encoding, If-None-Match'
-      }
-    });
+    return respondWithEtag(JSON.stringify(bodyObj), JSON_HEADERS);
   }
 
   // ------------- SVG RENDERING (overflow-proof) -------------
@@ -468,30 +423,7 @@ export async function GET(req: Request) {
   ${cells}
 </svg>`.trim();
 
-    {
-      const tag = etag(svg);
-      const inm = req.headers.get('if-none-match');
-      if (inm && inm === tag) {
-        return new Response(null, {
-          status: 304,
-          headers: {
-            'ETag': tag,
-            'Cache-Control': 'public, max-age=0, s-maxage=900, must-revalidate',
-            'Access-Control-Allow-Origin': '*',
-            'Vary': 'Authorization, Accept-Encoding, If-None-Match'
-          }
-        });
-      }
-      return new Response(svg, {
-        headers: {
-          'Content-Type': 'image/svg+xml; charset=utf-8',
-          'ETag': tag,
-          'Cache-Control': 'public, max-age=0, s-maxage=900, must-revalidate',
-          'Access-Control-Allow-Origin': '*',
-          'Vary': 'Authorization, Accept-Encoding, If-None-Match'
-        }
-      });
-    }
+    return respondWithEtag(svg, SVG_HEADERS);
   }
 
   // Compact strip (icons only) — optionally tiny labels without overflow
@@ -546,29 +478,6 @@ export async function GET(req: Request) {
   ${icons}
 </svg>`.trim();
 
-    {
-      const tag = etag(svg);
-      const inm = req.headers.get('if-none-match');
-      if (inm && inm === tag) {
-        return new Response(null, {
-          status: 304,
-          headers: {
-            'ETag': tag,
-            'Cache-Control': 'public, max-age=0, s-maxage=900, must-revalidate',
-            'Access-Control-Allow-Origin': '*',
-            'Vary': 'Authorization, Accept-Encoding, If-None-Match'
-          }
-        });
-      }
-      return new Response(svg, {
-        headers: {
-          'Content-Type': 'image/svg+xml; charset=utf-8',
-          'ETag': tag,
-          'Cache-Control': 'public, max-age=0, s-maxage=900, must-revalidate',
-          'Access-Control-Allow-Origin': '*',
-          'Vary': 'Authorization, Accept-Encoding, If-None-Match'
-        }
-      });
-    }
+    return respondWithEtag(svg, SVG_HEADERS);
   }
 }
