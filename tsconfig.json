@@ -16,7 +16,7 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "noEmit": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "types": [
@@ -36,7 +36,8 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

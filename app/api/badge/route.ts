@@ -1,61 +1,64 @@
 // app/api/badge/route.ts
-import { pickTierByPoints, tierWithBand } from '@/lib/rank';
+// Static/custom badge — no GitHub calls.
+import { clampPoints, pickTierByPoints, tierWithBand } from '@/lib/rank';
 import { buildBadgeSVG } from '@/lib/badge';
+import { cacheHeaders, cleanText, parseEnum, parseHexColor, svgResponse } from '@/lib/http';
 
-export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
 
-  const label   = searchParams.get('label')   ?? 'Rank';
-  const persona = searchParams.get('persona') ?? '';
-  const grade   = searchParams.get('grade')   ?? '';
-  const pointsQ = searchParams.get('points');
-  const color   = searchParams.get('color')   ?? '';
-  const logo    = (searchParams.get('logo') ?? 'saber') as 'github' | 'saber' | 'galaxy';
+  const label      = cleanText(searchParams.get('label'), 'Rank', 24);
+  const persona    = cleanText(searchParams.get('persona'), '', 32);
+  const grade      = cleanText(searchParams.get('grade'), '', 6);
+  const pointsQ    = searchParams.get('points');
+  const color      = parseHexColor(searchParams.get('color'));
+  const logo       = parseEnum(searchParams.get('logo'), ['github', 'saber', 'galaxy'] as const, 'saber');
   const granular   = searchParams.get('granular') === '1';
   const showPoints = searchParams.get('showPoints') === '1';
   const showNext   = searchParams.get('showNext') === '1';
-  const xpParam    = (searchParams.get('xp') ?? 'dots') as 'dots' | 'bar' | 'none';
-  const theme      = (searchParams.get('theme') ?? 'jedi') as 'jedi' | 'sith';
+  const xpParam    = parseEnum(searchParams.get('xp'), ['dots', 'bar', 'none'] as const, 'dots');
+  const theme      = parseEnum(searchParams.get('theme'), ['jedi', 'sith'] as const, 'jedi');
 
   let rightPersona = persona;
   let rightGrade   = grade;
-  let rightColor   = color;
+  let rightColor   = color ?? '';
   let points: number | null = null;
 
-  if (pointsQ !== null) {
+  if (pointsQ !== null && pointsQ.trim() !== '') {
     const p = Number(pointsQ);
-    const t = pickTierByPoints(isNaN(p) ? 0 : p);
+    points = clampPoints(Number.isNaN(p) ? 0 : p);
+    const t = pickTierByPoints(points);
     rightPersona = t.name;
     rightGrade   = t.grade;
-    rightColor   = t.color;
-    points = isNaN(p) ? 0 : Math.max(0, Math.min(100, p));
+    rightColor   = color ?? t.color; // an explicit valid ?color= still wins
   }
 
   rightPersona ||= 'Master Yoda';
   rightGrade   ||= 'S++';
   rightColor   ||= '#22c55e';
 
-  let rightText = `${rightPersona} (${rightGrade})`;
-  let progressRatio: number | undefined = undefined;
+  const parts: string[] = [];
+  let progressRatio: number | undefined;
 
-  if (granular && points !== null) {
-    // Sub-rank band and % progress only mean something when we have a
-    // real point value; without one there's nothing to derive them from.
+  if (points !== null) {
+    // Band, "next tier" and XP progress all derive from a real point value,
+    // independently of each other (previously showNext and the XP indicator
+    // silently did nothing unless granular=1).
     const { bandRoman, nextTier, pointsToNext, pctToNext } = tierWithBand(points);
     progressRatio = (pctToNext ?? 0) / 100;
-    const parts = [`${rightPersona} (${rightGrade}) • ${bandRoman}`];
+    parts.push(granular ? `${rightPersona} (${rightGrade}) • ${bandRoman}` : `${rightPersona} (${rightGrade})`);
     if (showPoints) parts.push(`${points.toFixed(1)} pts`);
     if (showNext && nextTier && typeof pointsToNext === 'number') {
       parts.push(`+${pointsToNext.toFixed(1)} to ${nextTier.name}`);
     }
-    rightText = parts.join(' • ');
-  } else if (showPoints && points !== null) {
-    rightText = `${rightText} • ${points.toFixed(1)} pts`;
+  } else {
+    parts.push(`${rightPersona} (${rightGrade})`);
   }
+  const rightText = parts.join(' • ');
 
-  const isMaxed = rightGrade === 'S++' || (points !== null && points >= 98);
+  const isMaxed = rightGrade === 'S++';
 
   const { svg } = buildBadgeSVG({
     label,
@@ -68,11 +71,5 @@ export async function GET(req: Request) {
     decorateMaxed: isMaxed
   });
 
-  return new Response(svg, {
-    headers: {
-      'Content-Type': 'image/svg+xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=0, s-maxage=3600, must-revalidate',
-      'Access-Control-Allow-Origin': '*'
-    }
-  });
+  return svgResponse(svg, cacheHeaders(3600, false));
 }

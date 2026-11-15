@@ -1,0 +1,34 @@
+name: Bug report
+description: A badge renders wrong, an endpoint errors, or a number looks off.
+labels: [bug]
+body:
+  - type: input
+    id: url
+    attributes:
+      label: Badge / endpoint URL
+      description: The full URL you used. Remove any tokens first.
+      placeholder: https://yoda-level-github-badge.vercel.app/api/user-rank?username=octocat&badge=1
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: dropdown
+    id: hosting
+    attributes:
+      label: Where is it running?
+      options:
+        - Public demo (yoda-level-github-badge.vercel.app)
+        - My own Vercel deployment
+        - Docker / self-hosted
+        - Local dev
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else? (screenshots, /api/streak-debug output)
+      description: Never paste a GitHub token or other secret here.

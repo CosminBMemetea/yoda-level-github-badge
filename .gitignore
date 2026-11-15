@@ -1,7 +1,12 @@
 node_modules
 .next
 out
+coverage
 .env*
+!.env.example
 .DS_Store
-
-tmp
+next-env.d.ts
+*.tsbuildinfo
+.vercel
+npm-debug.log*
+tmp/

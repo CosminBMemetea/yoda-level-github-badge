@@ -28,7 +28,11 @@ export function normalizeDays(
 ): DayCount[] {
   const map = new Map<string, number>();
   for (const d of days) {
-    map.set(toYMDUTC(d.date), (d.count ?? 0) | 0);
+    const t = new Date(d.date);
+    if (Number.isNaN(t.getTime())) continue;
+    const ymd = toYMDUTC(t);
+    // Sum duplicates instead of letting the last one silently win.
+    map.set(ymd, (map.get(ymd) ?? 0) + Math.max(0, (d.count ?? 0) | 0));
   }
 
   const out: DayCount[] = [];
@@ -62,7 +66,13 @@ export function fromEvents(events: any[], windowDays: number): DayCount[] {
   const minUTC = toYMDUTC(new Date(Date.now() - windowDays * 86400000));
   const bin = new Map<string, number>();
   for (const e of events || []) {
-    const ymd = toYMDUTC(e?.created_at || e?.createdAt || e?.timestamp || new Date());
+    // Events without a parseable timestamp are skipped: counting them as
+    // "today" (the old behaviour) fabricated activity and inflated streaks.
+    const raw = e?.created_at || e?.createdAt || e?.timestamp;
+    if (!raw) continue;
+    const t = new Date(raw);
+    if (Number.isNaN(t.getTime())) continue;
+    const ymd = toYMDUTC(t);
     bin.set(ymd, (bin.get(ymd) ?? 0) + 1);
   }
   return normalizeDays(

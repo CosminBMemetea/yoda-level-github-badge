@@ -1,12 +1,37 @@
+<div align="center">
+
 # 🛡️ Yoda-Level GitHub Badge
 
-Turn your GitHub activity into a cinematic, Shields-style **Rank** badge — with **granular sub-ranks (I–IV)**, a colorful **XP indicator**, **Jedi/Sith themes**, **streaks**, fun **Trials** (achievements), and shareable head-to-head **Duels**.
+**Turn your GitHub activity into a Star Wars–themed rank badge for your profile README.**
+Tiers from *Force Beginner* to *Master Yoda*, sub-ranks, XP bars, streaks, achievements and head-to-head duels — all as plain SVG.
 
-<p align="center">
-  <a href="https://yoda-level-github-badge.vercel.app/api/user-rank?username=CosminBMemetea&badge=1&granular=1&showPoints=1&showNext=1&streak=1&logo=galaxy">
-    <img alt="Rank" src="https://yoda-level-github-badge.vercel.app/api/user-rank?username=CosminBMemetea&badge=1&granular=1&showPoints=1&showNext=1&streak=1&logo=galaxy" />
-  </a>
-</p>
+<a href="https://yoda-level-github-badge.vercel.app/ui"><img alt="Live rank badge for torvalds" src="https://yoda-level-github-badge.vercel.app/api/user-rank?username=torvalds&badge=1&granular=1&showPoints=1&logo=galaxy" /></a>
+<br/>
+<a href="https://yoda-level-github-badge.vercel.app/ui"><img alt="Sample rank badge" src="https://yoda-level-github-badge.vercel.app/api/badge?points=82.5&granular=1&xp=bar&showPoints=1&showNext=1&logo=galaxy" /></a>
+<br/>
+<a href="https://yoda-level-github-badge.vercel.app/ui"><img alt="Sample Sith badge" src="https://yoda-level-github-badge.vercel.app/api/badge?points=73.4&theme=sith&xp=bar&granular=1&logo=saber" /></a>
+
+### [✨ Try it live — open the Badge Studio »](https://yoda-level-github-badge.vercel.app/ui)
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
+
+<a href="https://yoda-level-github-badge.vercel.app/ui"><img src="docs/studio.png" alt="Badge Studio: type a username, preview the rank badge, trials and duel, then copy the Markdown" width="820" /></a>
+
+</div>
+
+## ⚡ Add it to your profile in 30 seconds
+
+1. Copy this line, replacing `YOUR_USERNAME` with your GitHub username:
+
+   ```md
+   [![Rank](https://yoda-level-github-badge.vercel.app/api/user-rank?username=YOUR_USERNAME&badge=1&granular=1&xp=bar&streak=1&logo=galaxy)](https://yoda-level-github-badge.vercel.app/ui)
+   ```
+
+2. Paste it into the `README.md` of your profile repository (the repo named exactly like your username).
+3. Commit — done. The badge refreshes automatically (cached ~20 minutes).
+
+Prefer clicking? The **[Badge Studio](https://yoda-level-github-badge.vercel.app/ui)** previews every badge for any username and gives you a **Copy Markdown** button.
 
 ---
 
@@ -23,13 +48,7 @@ Turn your GitHub activity into a cinematic, Shields-style **Rank** badge — wit
 
 ---
 
-## 🚀 Quick Start
-
-Drop this in your GitHub profile README, swapping in your username:
-
-```md
-[![Rank](https://yoda-level-github-badge.vercel.app/api/user-rank?username=YOUR_USERNAME&badge=1&granular=1&showPoints=1&showNext=1&streak=1&logo=galaxy)](https://yoda-level-github-badge.vercel.app/api/user-rank?username=YOUR_USERNAME)
-```
+## 🎨 More examples
 
 **Sith theme + XP bar:**
 
@@ -39,11 +58,15 @@ Drop this in your GitHub profile README, swapping in your username:
 
 **Rank Duel — you vs a friend:**
 
+<img alt="Duel example" src="https://yoda-level-github-badge.vercel.app/api/duel?user1=gaearon&user2=torvalds&theme=jedi" />
+
 ```md
 [![Rank Duel](https://yoda-level-github-badge.vercel.app/api/duel?user1=YOUR_USERNAME&user2=THEIR_USERNAME&theme=jedi)](https://yoda-level-github-badge.vercel.app/api/duel?user1=YOUR_USERNAME&user2=THEIR_USERNAME&theme=jedi)
 ```
 
 **Trials (achievements strip):**
+
+<img alt="Trials example" src="https://yoda-level-github-badge.vercel.app/api/trials?username=gaearon&theme=jedi&labels=1" />
 
 ```md
 ![Yoda Trials](https://yoda-level-github-badge.vercel.app/api/trials?username=YOUR_USERNAME&theme=jedi)
@@ -55,7 +78,7 @@ Drop this in your GitHub profile README, swapping in your username:
 ![Rank](https://yoda-level-github-badge.vercel.app/api/badge?points=82.5&label=Rank&granular=1&xp=bar&showPoints=1&showNext=1&logo=galaxy)
 ```
 
-> Replace the domain with your own deployment if you forked and redeployed this project.
+> Running your own copy? Replace the domain with your deployment's — see [Self-hosting](#-self-hosting).
 
 ---
 
@@ -81,8 +104,9 @@ Drop this in your GitHub profile README, swapping in your username:
 | `showNext`     | 0\|1   | `0`       | Append delta to next tier (e.g., `+2.0 to Grand Master`)           |
 | `streak`       | 0\|1   | `0`       | Show streak on the badge text                                     |
 | `streakMode`   | enum   | `classic` | `classic` (consecutive days ≥1) \| `momentum` (2-day rolling window) |
-| `streakSource` | enum   | `calendar`| `calendar` \| `events` \| `hybrid` (merges both, taking the max)   |
+| `streakSource` | enum   | `calendar`| `calendar` \| `events` \| `hybrid` (merges both, taking the max). `calendar` needs a token and falls back to public events without one |
 | `streakWindow` | number | `120`     | Days of history for streak calc (30–365)                           |
+| `streakAnchor` | enum   | `lastActive` | `lastActive` (count back from your latest active day) \| `today`  |
 
 **JSON example**
 
@@ -98,7 +122,7 @@ Drop this in your GitHub profile README, swapping in your username:
   "persona": "Rebel Pilot",
   "color": "#8b5cf6",
   "method": "graphql",
-  "streak": { "mode": "classic", "days": 5 },
+  "streak": { "mode": "classic", "days": 5, "source": "calendar" },
   "granular": { "band": "II", "nextTier": "Rebel Commander", "pointsToNext": 1.6, "pctWithinTier": 41.2 },
   "tiers": [
     { "grade": "S++", "name": "Master Yoda", "min": 98 },
@@ -134,6 +158,7 @@ Drop this in your GitHub profile README, swapping in your username:
 | `showNext`   | 0\|1   | `0`           | Add distance to next tier                                      |
 | `logo`       | enum   | `saber`       | `galaxy` \| `saber` \| `github`                                 |
 | `theme`      | enum   | `jedi`        | `jedi` \| `sith`                                                |
+| `color`      | hex    | tier color    | Right-side color override, e.g. `ff8800` or `#f80`             |
 
 **Example**
 
@@ -182,7 +207,7 @@ Drop this in your GitHub profile README, swapping in your username:
 | `labels`       | 0\|1   | `0`          | Show short labels under icons in compact mode                |
 | `cols`         | number | `3`          | Columns for the `detailed` card grid (1–4)                  |
 | `title`        | string | `Yoda Trials`| Heading text                                                |
-| `streakWindow` | number | `180`        | Days of history used for the streak-based trial (30–400)     |
+| `streakWindow` | number | `180`        | Days of history used for the streak-based trial (30–365)     |
 | `json`         | 0\|1   | `0`          | `1` → return raw JSON instead of SVG                        |
 
 Trials unlock based on recent activity: commits in the last 7/30 days, merged PRs, PR reviews, commit streaks, distinct issues opened, total stars, and reaching S-tier.
@@ -192,6 +217,22 @@ Trials unlock based on recent activity: commits in the last 7/30 days, merged PR
 ```
 /api/trials?username=CosminBMemetea&theme=jedi&detailed=1
 ```
+
+---
+
+### 5) `/api/streak-debug` — See what your streak is made of
+
+Returns JSON with the per-day counts (UTC) and the streak computed with each anchor. Params: `username`, `daysBack` (30–365, default 180), `anchor` (`lastActive` \| `today`), `source` (`auto` \| `calendar` \| `events` \| `hybrid`).
+
+```
+https://yoda-level-github-badge.vercel.app/api/streak-debug?username=YOUR_USERNAME
+```
+
+### Errors
+
+Invalid input never breaks your README: when you asked for an image (`badge=1`, `/api/duel`, `/api/trials`) you get a small red badge such as **GITHUB USER NOT FOUND** or **GITHUB API RATE LIMIT EXCEEDED**. JSON requests get the matching HTTP status (`400`, `404`, `429`, `502`) and `{"error": "…"}`.
+
+Usernames must be valid GitHub logins; unknown values for enum params (`theme`, `logo`, `xp`, …) fall back to their defaults; free text (`label`, `title`) is capped in length.
 
 ---
 
@@ -209,71 +250,86 @@ Sub-ranks inside each tier: **I** (entry) → **IV** (top).
 
 ---
 
-## 🔐 Environment Variables
+## 🏠 Self-hosting
 
-| Name           | Required    | Purpose                                                                                                                                                  |
-| -------------- | :---------: | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GITHUB_TOKEN` | Recommended | Enables GitHub **GraphQL** (richer metrics + 5,000 req/hr). Public-data scope is enough. Without it, the app falls back to REST with lower rate limits. |
+The public demo is free to use, but it shares one GitHub rate limit with everyone. For a busy profile, run your own copy — it takes a few minutes.
 
-**Vercel**: Project → *Settings → Environment Variables* → add `GITHUB_TOKEN`, redeploy.
-**Local**: create `.env.local`:
+### Vercel (recommended)
 
-```
-GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxx
-```
+1. **Fork** this repository.
+2. Import the fork in [Vercel](https://vercel.com/new) — no build settings to change.
+3. *(Optional, recommended)* add a `GITHUB_TOKEN` environment variable (see below) and redeploy.
+4. Replace `https://yoda-level-github-badge.vercel.app` in your badge URLs with your deployment's domain.
 
----
-
-## 🚀 Deployment (Vercel)
+### Docker
 
 ```bash
-# install
-npm i
-
-# local dev
-npm run dev
-
-# build check
-npm run build
+docker build -t yoda-badge .
+docker run -p 3000:3000 -e GITHUB_TOKEN=your_token yoda-badge
+# → http://localhost:3000/ui
 ```
 
-* Push to GitHub.
-* Import the repo into **Vercel**.
-* Set `GITHUB_TOKEN` (optional but recommended).
-* Vercel auto-builds when you push.
+The image runs as the unprivileged `node` user.
 
----
+### Any Node.js host
 
-## 🧰 Implementation Notes
+```bash
+npm ci
+npm run build
+GITHUB_TOKEN=your_token npm start   # listens on :3000
+```
 
-* **Edge Runtime** routes (`app/api/**/route.ts`) for fast cold starts.
-* SVG is **XML-safe** (attributes/text escaped; decimals use `0.x` not `.x`).
-* **Caching**: responses set `s-maxage` for CDN caching; add `&t=<nonce>` to bust caches if needed.
-* **XP colors** ramp with progress: red → amber → lime → green (Sith palette adjusts hues).
-* **Legend override**: obvious legends (e.g., `torvalds`) are clamped to 100 to ensure “Yoda (S++)”.
+Requires Node.js 20.9+.
+
+### 🔐 Environment variables
+
+| Name           | Required    | Purpose |
+| -------------- | :---------: | ------- |
+| `GITHUB_TOKEN` | Recommended | Enables GraphQL (richer metrics, contribution-calendar streaks) and raises the rate limit to 5,000 req/hr. Without it the app uses public REST data (60 req/hr per server IP). |
+
+Create a [fine-grained personal access token](https://github.com/settings/personal-access-tokens/new) with **no repository access and no permissions** — public profile data is all the app reads. Locally, copy `.env.example` to `.env.local` and fill it in. Never commit it.
+
+**Per-request token (advanced):** API clients may send `Authorization: Bearer <token>` instead. Those responses are marked `private, no-store` so shared caches never serve them to anyone else. Don't put tokens in URLs.
+
+### Caching
+
+Badges are served with `s-maxage` (CDN cache, 10–60 min depending on the endpoint) plus `stale-while-revalidate`. GitHub's own image proxy also caches README images, so changes can take a little while to show up.
 
 ---
 
 ## 🛠 Troubleshooting
 
-* **Broken SVG / XML error**: You're hitting a cached response. Re-deploy and add `&t=1` to the URL.
-* **Streak looks wrong**: Hit `/api/streak-debug?username=YOUR_USERNAME` — it returns the raw per-day counts and computed streak so you can see exactly what's being counted. Without your own `GITHUB_TOKEN`, only public contributions are visible.
-* **Module not found (`@/lib/...`)**:
-  * Ensure `tsconfig.json` has:
-    ```json
-    { "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["./*"] } } }
-    ```
-  * Or use relative imports like `../../../lib/rank`.
-* **Rate limited / `"method":"rest"`**: Set `GITHUB_TOKEN` in env and redeploy.
+* **Badge says `GITHUB API RATE LIMIT EXCEEDED`** — the server hit GitHub's limit. Set `GITHUB_TOKEN` on your own deployment.
+* **Badge says `GITHUB USER NOT FOUND`** — check the spelling of `username`.
+* **Streak looks wrong** — open `/api/streak-debug?username=YOUR_USERNAME` to see the exact per-day counts (UTC). Without a token only public activity from the last ~90 days of events is visible.
+* **README shows an old badge** — GitHub caches images; wait a few minutes or add a throwaway param like `&v=2`.
 
 ---
+
+## 🧑‍💻 Development
+
+```bash
+npm ci
+npm run dev         # http://localhost:3000 and /ui
+npm run typecheck
+npm test            # Vitest — GitHub is mocked, no token needed
+npm run build
+```
+
+Built with Next.js (App Router route handlers) and TypeScript. Each endpoint lives in `app/api/<name>/route.ts`; shared logic is in `lib/`.
+
+## 🤝 Contributing
+
+Issues and pull requests are welcome! Read **[CONTRIBUTING.md](CONTRIBUTING.md)** for setup, project layout and guidelines, and use the issue templates for bugs and ideas.
+
+## 🔒 Security
+
+Please report vulnerabilities privately — see **[SECURITY.md](SECURITY.md)**.
 
 ## 📄 License
 
-MIT — use anywhere, contributions welcome.
-
----
+[MIT](LICENSE) — use it anywhere.
 
 ## 🙌 Credits
 
-Built with Next.js App Router + Edge Functions. Star Wars-inspired styling for fun; not affiliated with Lucasfilm/Disney. GitHub data via REST/GraphQL APIs.
+Star Wars–inspired styling for fun; not affiliated with Lucasfilm or Disney. GitHub data via the public REST and GraphQL APIs.
